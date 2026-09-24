@@ -78,4 +78,63 @@ Weitere Grenzen: keine vollständige Temperatur-/Versorgungs-/Langzeitmatrix; So
 
 ## Lokaler Commit und Repository-Nachweis
 
-Der Implementierungscommit enthält ausschließlich den beabsichtigten Quellcode einschließlich lokal gepinntem/gepatchtem SerialFlash, Hosttests, Buildkonfiguration, Artefakt-Ignore-Regel und technische Dokumentation. Keine Secrets, Flashbackups, .pio-Build-Caches, firmware.bin oder ZIPs werden aufgenommen. Die konkrete Commit-ID, Dateiliste und abschließenden Repository-Ausgaben werden nach Erstellung unten ergänzt. Ein separater Dokumentationsabschluss hält die tatsächliche Implementierungs-ID fest, ohne eine unmögliche Selbstreferenz auf den Hash der eigenen Commit-Inhalte zu erzeugen. Kein Push.
+Der Implementierungscommit enthält ausschließlich den beabsichtigten Quellcode einschließlich lokal gepinntem/gepatchtem SerialFlash, Hosttests, Buildkonfiguration, Artefakt-Ignore-Regel und technische Dokumentation. Keine Secrets, Flashbackups, .pio-Build-Caches, firmware.bin oder ZIPs werden aufgenommen. Die konkrete Implementierungs-ID, Dateiliste und Repository-Ausgaben sind unten festgehalten. Ein separater Dokumentationsabschluss hält die tatsächliche Implementierungs-ID fest, ohne eine unmögliche Selbstreferenz auf den Hash der eigenen Commit-Inhalte zu erzeugen. Kein Push.
+
+### Erstellter Implementierungscommit
+
+Commit-ID: **cb43c446b8779395d2b1dd613eacf19a903720b6**
+
+Titel: `fix: preserve image slot and serialize full V6 display updates`
+
+Umfang: `29 files changed, 3767 insertions(+), 400 deletions(-)`. Enthalten sind Storage-/SerialFlash-Korrekturen, vollständiger Zwei-Controller-Transfer, BUSY-Qualifikation, V6-Synchronisierung, deterministische Tests und alle zugehörigen technischen Berichte.
+
+Vollständige Commit-Dateiliste:
+
+```text
+.gitignore
+DISPLAY_ANALYSIS.md
+DISPLAY_REFRESH_TIMING_FIX.md
+DISPLAY_ROTATION_RACE_FIX.md
+FINAL_HARDWARE_VALIDATION.md
+STORAGE_FIX.md
+lib/SerialFlash/LOCAL_PATCHES.md
+lib/SerialFlash/SerialFlash.h
+lib/SerialFlash/SerialFlashChip.cpp
+lib/SerialFlash/SerialFlashDirectory.cpp
+lib/SerialFlash/library.json
+lib/SerialFlash/util/SerialFlash_directwrite.h
+platformio.ini
+src/display_sync.cpp
+src/display_sync.h
+src/epaper_13inch_transfer.h
+src/epaper_display.cpp
+src/epaper_display.h
+src/image_format.h
+src/image_storage.cpp
+src/image_storage.h
+src/main.cpp
+tests/host/Arduino.h
+tests/host/SPI.h
+tests/host/display_test.cpp
+tests/host/download_test.cpp
+tests/host/rotation_test.cpp
+tests/host/storage_test.cpp
+tests/run_host_tests.sh
+```
+
+`git status --short` nach diesem Commit: **leere Ausgabe**, Arbeitsbaum sauber.
+
+`git remote -v`:
+
+```text
+origin	/tmp/openpaper-firmware-reference (fetch)
+origin	/tmp/openpaper-firmware-reference (push)
+```
+
+Es erfolgte kein Push. origin zeigt auf eine lokale Referenzkopie, nicht auf ein entferntes Hosting-Repository.
+
+### Dokumentationsabschluss
+
+Dieser Nachtrag wird als eigener reiner Dokumentationscommit gespeichert; er verändert ausschließlich FINAL_HARDWARE_VALIDATION.md und weder Firmwarequellcode noch Tests oder Artefakte. Dadurch ist die oben dokumentierte Implementierungs-ID unveränderlich im Bericht enthalten. Die ID des Dokumentationscommits selbst ist nach Abschluss mit `git log -1 --format=%H -- FINAL_HARDWARE_VALIDATION.md` abrufbar; ihr eigener Hash kann nicht als Literal in ihren eigenen gehashten Inhalt aufgenommen werden. Der Arbeitsbaum wird nach dem Dokumentationscommit erneut mit `git status --short` auf leere Ausgabe geprüft.
+
+Abschließende Auslieferung: `artifacts/openpaper-l-display-v6-windows.zip`; Firmware **1756704 Bytes**, SHA256 **cadcd51ae38bfd0ec6d8d413e836aa4ad0aafae76d6a484a6b1044c045b2aa78**. Reproduzierbarer vollständiger Neubau, alle Hosttests und Bytegleichheitsprüfung bestanden. Der Bericht dokumentiert die Abnahme der bereits physisch geprüften Binärdatei, keine neue Firmwareversion.
