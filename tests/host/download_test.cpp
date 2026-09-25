@@ -138,6 +138,10 @@ int main() {
     settings.lastModified = "stable-date";
     assert(downloadAndSaveFile("tmp_raw.bin", requestedUrl) == 1);
 
+    responseEtag.assign(200, 'x');
+    settings.lastModified = "last-modified:stable-date";
+    assert(downloadAndSaveFile("tmp_raw.bin", requestedUrl) == 1);
+
     reset(1048576);
     responseEtag = "\"same-validator-but-no-local-file\"";
     responseLastModified.clear();

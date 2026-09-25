@@ -27,6 +27,9 @@ kann später neu erzeugt werden und dadurch ein neues `Last-Modified` erhalten.
   bevor Bilddaten gelesen, der Flash beschrieben oder der Displaypfad gestartet
   wird.
 - Alte, untypisierte `Last-Modified`-Werte werden weiterhin erkannt.
+- Überlange, vom Server gelieferte Validatoren können das feste EEPROM-Feld
+  nicht überschreiben; ein passendes kurzes `Last-Modified` dient dann als
+  Fallback.
 - Ohne gültiges lokales Bild wird selbst bei passendem Validator vollständig
   geladen. Ein 304 wird nur bei vorhandenem Bildslot akzeptiert.
 - Wenn eine Remote-Konfiguration die Download-URL tatsächlich ändert, wird der
@@ -47,6 +50,7 @@ ausgeben. `Last-Modified` bleibt ein kompatibler Fallback.
 - identischen ETag bei HTTP 200,
 - HTTP 304,
 - typisiertes und altes `Last-Modified`,
+- überlangen ETag mit sicherem `Last-Modified`-Fallback,
 - keinen Transaktionsstart und unveränderte Slotbytes beim Skip,
 - Download trotz passendem Validator, wenn kein lokaler Slot vorhanden ist,
 - bestehende Abbruch- und Stromunterbrechungsfälle.

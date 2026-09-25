@@ -1436,13 +1436,21 @@ int downloadAndSaveFile(String fileName, String url) {
    String etag = http.header("ETag");
    String lastMod = http.header("Last-Modified");
    String responseValidator = "";
-   if (etag.length() > 0) responseValidator = "etag:" + etag;
-   else if (lastMod.length() > 0) responseValidator = "last-modified:" + lastMod;
-   bool legacyLastModifiedMatch = etag.length() == 0 && lastMod.length() > 0 && settings.lastModified == lastMod;
+   // The EEPROM field is 130 bytes wide. Keep the value plus terminator inside
+   // that field even when a server sends an unexpectedly large validator.
+   constexpr size_t MAX_STORED_VALIDATOR_LENGTH = 128;
+   if (etag.length() > 0 && etag.length() + 5 <= MAX_STORED_VALIDATOR_LENGTH)
+      responseValidator = "etag:" + etag;
+   else if (lastMod.length() > 0 && lastMod.length() + 14 <= MAX_STORED_VALIDATOR_LENGTH)
+      responseValidator = "last-modified:" + lastMod;
+   else if (etag.length() > 0 || lastMod.length() > 0)
+      Serial.println("[DL] HTTP image validator too long; not persisting it");
+   bool usingLastModified = responseValidator.startsWith("last-modified:");
+   bool legacyLastModifiedMatch = usingLastModified && settings.lastModified == lastMod;
    if (haveLocalImage && responseValidator.length() > 0 &&
        (settings.lastModified == responseValidator || legacyLastModifiedMatch)) {
       Serial.printf("[DL] Image unchanged (%s); skipping flash write and display refresh\n",
-                    etag.length() > 0 ? "ETag" : "Last-Modified");
+                    usingLastModified ? "Last-Modified" : "ETag");
       http.end();
       return 1;
    }
