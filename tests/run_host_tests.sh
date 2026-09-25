@@ -23,6 +23,10 @@ c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=undefined -g \
   -o "$output/download_test"
 "$output/download_test"
 
+c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=undefined -g \
+  -Isrc tests/host/device_wake_test.cpp -o "$output/device_wake_test"
+"$output/device_wake_test"
+
 # Reproduce the previous whitelist rejection with all other guards unchanged.
 python3 - "$output/legacy_storage.cpp" <<'PYCODE'
 import pathlib, sys

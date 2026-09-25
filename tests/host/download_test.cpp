@@ -3,6 +3,7 @@
 #include "storage_test.cpp"
 #undef main
 #include <cstring>
+#include "device_wake.h"
 using String = std::string;
 // Arduino String operations used by the extracted production function.
 class ArduinoString : public std::string {
@@ -18,6 +19,8 @@ struct {
 } settings;
 static String tempLastModified;
 static bool downloadedDirectBmp;
+static int serverSuggestedSleepSeconds;
+static uint32_t serverSleepHeaderAtMs;
 static int httpFileSize;
 static SerialFlashFile saveFile;
 static const int EEPROM_SETTINGS_ADR = 0, HTTP_CODE_OK = 200, HTTP_CODE_NOT_MODIFIED = 304, WL_CONNECTED = 3;
@@ -33,7 +36,7 @@ static void delay(int) {}
 struct { void setSleep(bool) {} int status() { return WL_CONNECTED; } } WiFi;
 struct WiFiClientSecure { void setInsecure() {} };
 static std::vector<uint8_t> response;
-static std::string requestedUrl, responseEtag, responseLastModified;
+static std::string requestedUrl, responseEtag, responseLastModified, responseSleep;
 static std::vector<std::pair<std::string, std::string>> requestHeaders;
 static int responseStatus = HTTP_CODE_OK;
 static size_t disconnectAt;
@@ -62,6 +65,7 @@ struct HTTPClient {
     String header(const char *name) {
         if (!strcmp(name, "ETag")) return String(responseEtag);
         if (!strcmp(name, "Last-Modified")) return String(responseLastModified);
+        if (!strcmp(name, "X-OpenPaper-Sleep-Seconds")) return String(responseSleep);
         return String();
     }
     void end() {}
@@ -74,6 +78,7 @@ struct HTTPClient {
 int main() {
     reset(1048576);
     response.resize(960118);
+    responseSleep = "3555";
     disconnectAt = response.size();
     for (unsigned i = 0; i < 24; ++i) {
         std::fill(response.begin(), response.end(), uint8_t(i + 1));
@@ -100,6 +105,7 @@ int main() {
             assert(!ImageStorage::logicalLength());
         }
         assert(downloadAndSaveFile("tmp_raw.bin", url) == 0);
+        assert(serverSuggestedSleepSeconds == 3555);
         settings.lastModified = tempLastModified;
         assert(requestedUrl == url && downloadedDirectBmp);
         assert(ImageStorage::logicalLength() == response.size());
@@ -128,8 +134,16 @@ int main() {
     file.close();
 
     responseStatus = HTTP_CODE_NOT_MODIFIED;
+    responseSleep = "600";
     assert(downloadAndSaveFile("tmp_raw.bin", requestedUrl) == 1);
+    assert(serverSuggestedSleepSeconds == 600);
     responseStatus = HTTP_CODE_OK;
+
+    responseSleep = "not-a-number";
+    serverSuggestedSleepSeconds = 0;
+    assert(downloadAndSaveFile("tmp_raw.bin", requestedUrl) == 1);
+    assert(serverSuggestedSleepSeconds == 0);
+    responseSleep = "3555";
 
     responseEtag.clear();
     responseLastModified = "stable-date";

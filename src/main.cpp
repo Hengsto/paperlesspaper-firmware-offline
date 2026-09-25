@@ -28,6 +28,7 @@
 #include <rom/rtc.h>
 
 #include "epaper_display.h"
+#include "device_wake.h"
 #include "types.h"
 
 #if DEBUG
@@ -171,6 +172,8 @@ bool imageStorageReady = false;
 static bool downloadedDirectBmp = false;
 static bool conversionWriteOk = true;
 static bool imageTransactionActive = false;
+static int serverSuggestedSleepSeconds = 0;
+static uint32_t serverSleepHeaderAtMs = 0;
 static bool imageTransaction(bool pending) {
    Preferences metadata;
    if (!metadata.begin("image-cache", false)) return false;
@@ -1420,9 +1423,19 @@ int downloadAndSaveFile(String fileName, String url) {
       // Compatibility with validators saved by releases before typed validators.
       http.addHeader("If-Modified-Since", settings.lastModified);
    }
-   const char *headerKeys[] = {"ETag", "Last-Modified"};
-   http.collectHeaders(headerKeys, 2);
+   const char *headerKeys[] = {"ETag", "Last-Modified", "X-OpenPaper-Sleep-Seconds"};
+   http.collectHeaders(headerKeys, 3);
    int code = http.GET();
+   String serverSleep = http.header("X-OpenPaper-Sleep-Seconds");
+   int parsedServerSleep = 0;
+   if (DeviceWake::parseSleepSeconds(serverSleep.c_str(), parsedServerSleep)) {
+      serverSuggestedSleepSeconds = parsedServerSleep;
+      serverSleepHeaderAtMs = millis();
+      Serial.printf("[SLEEP] Server suggestion accepted seconds=%d\n", parsedServerSleep);
+   }
+   else if (serverSleep.length() > 0) {
+      Serial.println("[SLEEP] Ignoring invalid server sleep header");
+   }
    if (code == HTTP_CODE_NOT_MODIFIED && haveLocalImage) {
       Serial.println("[DL] Image unchanged (HTTP 304); skipping flash write and display refresh");
       http.end();
@@ -2341,6 +2354,8 @@ void runSetupMode() {
 
 int processHttpDownload(String fileName) {
    DisplayGuard resourceGuard;
+   serverSuggestedSleepSeconds = 0;
+   serverSleepHeaderAtMs = 0;
    if (!imageStorageReady || bleWriteBuffer != nullptr || httpStorageBusy.exchange(true)) return -9;
    struct Unlock { ~Unlock() { httpStorageBusy.store(false); } } unlock;
    conversionWriteOk = true;
@@ -2755,12 +2770,19 @@ void loop() {
          gotToDeepSleep(0, false, false);
       }
       bool doMotionWake = (settings.imageMode == 1) ? settings.motionWakeup : false;
-      if (settings.timeout > 0) {
-         gotToDeepSleep(systemData.sleepPrediction, false, doMotionWake);
+      int configuredSleep = settings.timeout > 0 ? systemData.sleepPrediction : DEFAULT_SLEEP;
+      int nextSleep = configuredSleep;
+      if (settings.imageMode == 1 && dlSuccess < 0) {
+         nextSleep = DeviceWake::retrySleepSeconds(configuredSleep);
+         Serial.printf("[SLEEP] Download failed; retry in %d seconds\n", nextSleep);
       }
-      else {
-         gotToDeepSleep(DEFAULT_SLEEP, false, doMotionWake);
+      else if (settings.imageMode == 1 && serverSuggestedSleepSeconds > 0) {
+         nextSleep = DeviceWake::remainingSleepSeconds(
+             serverSuggestedSleepSeconds, serverSleepHeaderAtMs, millis());
+         Serial.printf("[SLEEP] Timetable wake in %d seconds (server=%d)\n",
+                       nextSleep, serverSuggestedSleepSeconds);
       }
+      gotToDeepSleep(nextSleep, false, doMotionWake);
    }
 
    // Keep alive for setup mode / BLE configs
