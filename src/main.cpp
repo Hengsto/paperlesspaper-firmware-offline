@@ -1400,6 +1400,8 @@ bool BleInit(String deviceId, bool enable) {
 // https://forum.arduino.cc/index.php?topic=565603.0
 // Download to a checked allocation. Preconverted BMP uses one file, no copy.
 int downloadAndSaveFile(String fileName, String url) {
+   serverSuggestedSleepSeconds = 0;
+   serverSleepHeaderAtMs = 0;
    tempLastModified = "";
    downloadedDirectBmp = false;
    WiFi.setSleep(false);
@@ -1428,17 +1430,25 @@ int downloadAndSaveFile(String fileName, String url) {
    int code = http.GET();
    String serverSleep = http.header("X-OpenPaper-Sleep-Seconds");
    int parsedServerSleep = 0;
-   if (DeviceWake::parseSleepSeconds(serverSleep.c_str(), parsedServerSleep)) {
-      serverSuggestedSleepSeconds = parsedServerSleep;
-      serverSleepHeaderAtMs = millis();
-      Serial.printf("[SLEEP] Server suggestion accepted seconds=%d\n", parsedServerSleep);
-   }
-   else if (serverSleep.length() > 0) {
+   const uint32_t receivedAtMs = millis();
+   const bool successfulStatus = code == HTTP_CODE_OK ||
+                                 (code == HTTP_CODE_NOT_MODIFIED && haveLocalImage);
+   if (successfulStatus && !DeviceWake::parseSleepSeconds(serverSleep.c_str(), parsedServerSleep) &&
+       serverSleep.length() > 0) {
       Serial.println("[SLEEP] Ignoring invalid server sleep header");
    }
+   // Publish only after the complete request succeeds, including body/storage checks.
+   auto acceptSleep = [&]() {
+      if (parsedServerSleep > 0) {
+         serverSuggestedSleepSeconds = parsedServerSleep;
+         serverSleepHeaderAtMs = receivedAtMs;
+         Serial.printf("[SLEEP] Server suggestion accepted seconds=%d\n", parsedServerSleep);
+      }
+   };
    if (code == HTTP_CODE_NOT_MODIFIED && haveLocalImage) {
       Serial.println("[DL] Image unchanged (HTTP 304); skipping flash write and display refresh");
       http.end();
+      acceptSleep();
       return 1;
    }
    if (code != HTTP_CODE_OK) {
@@ -1465,6 +1475,7 @@ int downloadAndSaveFile(String fileName, String url) {
       Serial.printf("[DL] Image unchanged (%s); skipping flash write and display refresh\n",
                     usingLastModified ? "Last-Modified" : "ETag");
       http.end();
+      acceptSleep();
       return 1;
    }
    int length = http.getSize();
@@ -1536,6 +1547,7 @@ int downloadAndSaveFile(String fileName, String url) {
    }
    downloadedDirectBmp = bmp4;
    tempLastModified = responseValidator;
+   acceptSleep();
    return 0; // transaction commits only after processing has also succeeded
 }
 
@@ -1692,8 +1704,6 @@ int loadImageFromWeb(String url, String fileName) {
       debugFS();
       downloadOk = downloadAndSaveFile(fileName, newUrl);
       if (downloadOk == 0 || downloadOk == 1) {
-         if (settings.forceDownload)
-            downloadOk = 0;
          return downloadOk;
       }
       else {
@@ -2393,6 +2403,10 @@ int processHttpDownload(String fileName) {
    else {
       Serial.println("[DL] WiFi Connection Failed");
       dlSuccess = -1;
+   }
+   if (dlSuccess < 0) {
+      serverSuggestedSleepSeconds = 0;
+      serverSleepHeaderAtMs = 0;
    }
    return dlSuccess;
 }

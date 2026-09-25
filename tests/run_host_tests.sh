@@ -16,6 +16,21 @@ source = pathlib.Path("src/main.cpp").read_text()
 start = source.index("int downloadAndSaveFile(")
 end = source.index("\n// https://github.com/zenmanenergy", start)
 pathlib.Path(sys.argv[1]).write_text(source[start:end])
+output = pathlib.Path(sys.argv[1]).parent
+start = source.index("int loadImageFromWeb(")
+end = source.index("\nString setLeadingZero", start)
+output.joinpath("load_function.inc").write_text(source[start:end])
+start = source.index("      int setSuccess = 0;", source.index("void loop()"))
+end = source.index("\n      debugFS();", start)
+output.joinpath("render_function.inc").write_text(source[start:end])
+start = source.index("int processHttpDownload(String fileName) {")
+end = source.index("\nvoid initFirstBoot", start)
+output.joinpath("process_function.inc").write_text(source[start:end])
+start = source.index("      bool doMotionWake =", source.index("void loop()"))
+end = source.index("\n   }", start)
+output.joinpath("sleep_function.inc").write_text(source[start:end])
+
+
 PYCODE
 c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=undefined -g \
   -I"$output" -Itests/host -Ilib/SerialFlash -Isrc \
