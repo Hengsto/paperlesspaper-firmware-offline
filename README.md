@@ -6,6 +6,24 @@ Offline first Firmware for an ESP32-C6 based E-Paper display device, featuring W
 
 ---
 
+## Changes in this fork
+
+This fork keeps the upstream offline firmware as its base and adds a focused reliability path for the 13.3-inch OpenPaper L (EL133UF3).
+
+My changes include:
+
+- **Reliable persistent image storage** on external NOR flash with a reusable, erase-aligned image slot, commit validation, read-back verification, and guarded recovery after interrupted writes.
+- **Complete dual-controller 13.3-inch refresh handling**, including bounded-RAM transfers, pixel/byte-count validation, BUSY synchronization, refresh timeouts, and deferred orientation changes during an active update.
+- **Conditional HTTP image fetching** with `ETag` / `Last-Modified`, so unchanged images return `304 Not Modified` and avoid unnecessary flash writes and panel refreshes.
+- **Server-directed wake intervals** through the optional `X-OpenPaper-Sleep-Seconds` response header, while preserving the BLE-configured interval as a fallback.
+- **Deterministic host-side regression tests** covering storage recovery, interrupted writes, display synchronization, rotation races, conditional HTTP requests, and wake-interval parsing.
+
+The implementation is documented in [`docs/OPENPAPER_L_RELIABILITY.md`](docs/OPENPAPER_L_RELIABILITY.md).
+
+Upstream project: [paperlesspaper/paperlesspaper-firmware-offline](https://github.com/paperlesspaper/paperlesspaper-firmware-offline)
+
+---
+
 ## 🌐 Web-UI & Online Flasher
 
 **Configure your device, flash firmware, or upload images directly from your browser — no local setup required!**
@@ -84,6 +102,8 @@ Offline first Firmware for an ESP32-C6 based E-Paper display device, featuring W
   - It also forces a fresh image download from the configured URL, bypassing HTTP cache/modification checks (`forceDownload`), so the display is guaranteed to refresh.
 - **BLE Upload**: Easily load and dither an image in the Web-UI and transmit it to the display entirely offline via Bluetooth. (BLE expects pre-dithered raw payloads for maximum transmission efficiency). The Web-UI automatically detects your display size via BLE (7" vs 13") and adjusts the layout. For the 13" display, the live-preview is rendered at 1/4 resolution for smooth slider performance, while the final image is automatically processed in full 1200x1600 resolution upon upload.
 - **WiFi Download**: Configure a Download URL (e.g., `http://local-server/image.jpg` or `.bmp`), and the ESP32 will fetch the display contents via WiFi upon waking up. 
+  - If the server returns a stable `ETag` (preferred) or `Last-Modified`, an unchanged image is not written to flash and does not trigger a panel refresh. Conditional HTTP requests and HTTP 304 are supported.
+  - A timetable-aware server may return `X-OpenPaper-Sleep-Seconds` on HTTP 200 and 304. The value controls only the next deep-sleep cycle; the BLE interval remains the fallback. See [OpenPaper L reliability and server-directed sleep](docs/OPENPAPER_L_RELIABILITY.md).
   - **On-Device Dithering**: The firmware automatically detects whether the downloaded file is a pre-dithered 4-bit BMP, a standard 24-bit BMP, or a JPEG image. 
   - 24-bit BMPs and JPEGs are dynamically scaled and perfectly dithered (Floyd-Steinberg) directly on the ESP32 to match the display's 6-color palette. This significantly reduces server-side preprocessing and allows fetching normal web JPEGs directly!
 - **Deep Sleep**: The device enters deep sleep to save power after an update. It wakes up via:
