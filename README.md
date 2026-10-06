@@ -6,6 +6,24 @@ Offline first Firmware for an ESP32-C6 based E-Paper display device, featuring W
 
 ---
 
+## Changes in this fork
+
+This fork keeps the upstream offline firmware as its base and adds a focused reliability path for the 13.3-inch OpenPaper L (EL133UF3).
+
+My changes include:
+
+- **Reliable persistent image storage** on external NOR flash with a reusable, erase-aligned image slot, commit validation, read-back verification, and guarded recovery after interrupted writes.
+- **Complete dual-controller 13.3-inch refresh handling**, including bounded-RAM transfers, pixel/byte-count validation, BUSY synchronization, refresh timeouts, and deferred orientation changes during an active update.
+- **Conditional HTTP image fetching** with `ETag` / `Last-Modified`, so unchanged images return `304 Not Modified` and avoid unnecessary flash writes and panel refreshes.
+- **Server-directed wake intervals** through the optional `X-OpenPaper-Sleep-Seconds` response header, while preserving the BLE-configured interval as a fallback.
+- **Deterministic host-side regression tests** covering storage recovery, interrupted writes, display synchronization, rotation races, conditional HTTP requests, and wake-interval parsing.
+
+The implementation is documented in [`docs/OPENPAPER_L_RELIABILITY.md`](docs/OPENPAPER_L_RELIABILITY.md).
+
+Upstream project: [paperlesspaper/paperlesspaper-firmware-offline](https://github.com/paperlesspaper/paperlesspaper-firmware-offline)
+
+---
+
 ## 🌐 Web-UI & Online Flasher
 
 **Configure your device, flash firmware, or upload images directly from your browser — no local setup required!**
